@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+
+    // USER RULES
+    function isValidUser(data) {
+      return data.uid is string && 
+             data.name is string && 
+             data.name.size() > 0 &&
+             data.role in ['client', 'lawyer'] &&
+             (data.keys().hasAll(['uid', 'name', 'role']));
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && !incoming().diff(existing()).affectedKeys().hasAny(['verified', 'role'])) ||
+        isAdmin()
+      );
+    }
+
+    // VERIFICATION RULES
+    match /verificationRequests/{reqId} {
+      allow get, list: if isAdmin();
+      allow create: if isSignedIn() && incoming().lawyerId == request.auth.uid && incoming().status == 'pending';
+      allow update: if isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+    }
+
+    // ADMIN COLLECTION (Locked)
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+    }
+
+    // CHAT RULES
+    function isParticipant(chatId) {
+      return isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
+
+    match /chats/{chatId} {
+      allow get, list: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn() && request.auth.uid in incoming().participants && incoming().participants.size() == 2;
+      allow update: if isSignedIn() && request.auth.uid in existing().participants && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastTimestamp'])
+      );
+
+      match /messages/{messageId} {
+        allow list: if isParticipant(chatId);
+        allow create: if isParticipant(chatId) && incoming().senderId == request.auth.uid;
+      }
+    }
+
+    // REVIEW RULES
+    function isValidReview(data) {
+      return data.lawyerId is string &&
+             data.clientId is string &&
+             data.rating is number &&
+             data.rating >= 1 && data.rating <= 5 &&
+             data.timestamp == request.time;
+    }
+
+    match /users/{lawyerId}/reviews/{reviewId} {
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().clientId == request.auth.uid && isValidReview(incoming());
+    }
+  }
+}

@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --bg-dark: #051622;
+  --bg-secondary: #0a1f2e;
+  --accent: #1ba098;
+  --accent-soft: rgba(27, 160, 152, 0.2);
+  --text-white: #ffffff;
+  --text-dim: rgba(255, 255, 255, 0.4);
+}
+
+body {
+  @apply bg-[#051622] text-white font-sans;
+}
+
+.glass {
+  @apply bg-white/5 backdrop-blur-md border border-white/10;
+}
+
+.title-italic {
+  @apply font-black italic tracking-tighter uppercase;
+}
+
+.sidebar-link {
+  @apply flex items-center gap-3 px-4 py-3 text-white/60 hover:text-white transition-all rounded-xl;
+}
+
+.sidebar-link-active {
+  @apply bg-white/10 text-white border border-white/10;
+}
+

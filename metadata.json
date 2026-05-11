@@ -1,0 +1,6 @@
+{
+  "name": "JUSTLAW",
+  "description": "Marketplace jurídico para conectar usuarios con abogados verificados. Tema oscuro, chat en tiempo real y pagos integrados.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}
